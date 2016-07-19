@@ -32,7 +32,7 @@ get_public_ip () {
 }
 
 find_active_version () {
-  curl -s -X GET -H "X-Fastly-Key: $1" https://api.fastly.com/service/$2/version | jq -c '.[] | select(.active == true) | .number'
+  curl -s -X GET -H "Fastly-Key: $1" https://api.fastly.com/service/$2/version | jq -c '.[] | select(.active == true) | .number'
 }
 
 find_backend () {
@@ -44,7 +44,7 @@ find_backend () {
   local private_ip="$4"
   local public_ip="$5"
 
-  local current_backends=`curl -s -X GET -H "X-Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$version/backend" | jq -r ".[] | select((.ipv4 == \"$public_ip\") and (.name == \"$private_ip\"))"`
+  local current_backends=`curl -s -X GET -H "Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$version/backend" | jq -r ".[] | select((.ipv4 == \"$public_ip\") and (.name == \"$private_ip\"))"`
 
   if [ "$(echo "$current_backends" | jq -r '.ipv4')" = "$public_ip" ]; then
     echo "public ip match"
@@ -64,14 +64,14 @@ remove_backend () {
   local serviceid="$2"
   local version="$3"
   local name="$4"
-  curl -s -X DELETE -H "X-Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$version/backend/$name"
+  curl -s -X DELETE -H "Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$version/backend/$name"
 }
 
 fetch_backend () {
   local api="$1"
   local serviceid="$2"
   local version="$3"
-  local o=`curl -s -H "X-Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$version/backend" | jq -r '.[] | select (.healthcheck == "Check Image Server")'`
+  local o=`curl -s -H "Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$version/backend" | jq -r '.[] | select (.healthcheck == "Check Image Server")'`
   echo -e "$o"
 }
 
@@ -139,17 +139,17 @@ add_backend () {
   local ip="$5"
 
   # CLone current version
-  local new_version=`curl -s -X PUT -H "X-Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$current_version/clone" | jq -r '.number'`
+  local new_version=`curl -s -X PUT -H "Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$current_version/clone" | jq -r '.number'`
 
   cleanup_dead_backend "$api" "$serviceid" "$new_version"
 
   # Add backend to it
   local body="address=$ip&ipv4=$ip&name=$name&port=8899&auto_loadbalance=1&healthcheck=Check Image Server&shield=jfk-ny-us&max_conn=1500&first_byte_timeout=20000&error_threshold=10&connect_timeout=15000&between_bytes_timeout=20000"
-  local backend_result=`curl -s -X POST -H "X-Fastly-Key: $api" --data "$body" "https://api.fastly.com/service/$serviceid/version/$new_version/backend"` # | jq -r '.ipv4'`
+  local backend_result=`curl -s -X POST -H "Fastly-Key: $api" --data "$body" "https://api.fastly.com/service/$serviceid/version/$new_version/backend"` # | jq -r '.ipv4'`
   if echo "$backend_result" | grep -q "Duplicate backend"; then
     # Remove it
     remove_backend "$api" "$serviceid" "$new_version" "$name"
-    backend_result=`curl -s -X POST -H "X-Fastly-Key: $api" --data "$body" "https://api.fastly.com/service/$serviceid/version/$new_version/backend"`
+    backend_result=`curl -s -X POST -H "Fastly-Key: $api" --data "$body" "https://api.fastly.com/service/$serviceid/version/$new_version/backend"`
   fi
   echo "be $backend_result"
 
@@ -159,10 +159,10 @@ add_backend () {
   fi
 
   # Validate it
-  local validate=`curl -s -X GET -H "X-Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$new_version/validate" | jq -r '.status'`
+  local validate=`curl -s -X GET -H "Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$new_version/validate" | jq -r '.status'`
   # Active it
   if [ "ok" = "$validate" ]; then
-    local result=`curl -s -X PUT -H "X-Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$new_version/activate" | jq -r '.active'`
+    local result=`curl -s -X PUT -H "Fastly-Key: $api" "https://api.fastly.com/service/$serviceid/version/$new_version/activate" | jq -r '.active'`
     if [ "true" = "$result" ]; then
       return 0
     fi
